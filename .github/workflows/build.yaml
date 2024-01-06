@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [aarch64]
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v1
+      with:
+        platforms: ${{ matrix.platform }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Run Docker command
+      run: |
+        docker run --rm -v ${{ github.workspace }}:/mnt alpine /bin/sh -c "
+          apk update &&
+          apk add build-base ncurses-dev linux-headers curl &&
+          curl -L -O https://busybox.net/downloads/busybox-1.36.1.tar.bz2 &&
+          tar -xf busybox-1.36.1.tar.bz2 &&
+          cd busybox-1.36.1 &&
+          make defconfig &&
+          sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config &&
+          make &&
+          cp busybox /mnt
+        "
+
+    - name: Upload BusyBox as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: busybox
+        path: busybox
